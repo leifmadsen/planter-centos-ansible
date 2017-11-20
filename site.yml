@@ -1,0 +1,63 @@
+# vim: set tabstop=2 shiftwidth=2 expandtab ft=yaml smartindent:
+---
+- hosts: planter
+  become: false
+
+  tasks:
+    - name: Install dependencies
+      become: true
+      become_user: root
+      package:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - golang
+        - git
+        - docker
+
+    - name: Setup development paths
+      file:
+        path: "{{ ansible_env.HOME }}/{{ k8sio_path }}"
+        state: directory
+
+    - name: Add GOPATH to bashrc
+      lineinfile:
+        state: present
+        path: "{{ ansible_env.HOME}}/.bashrc"
+        line: "export GOPATH=$HOME/{{ go_path }}"
+
+    - name: Clone k8s repositories
+      git:
+        repo: https://github.com/kubernetes/{{ item }}
+        dest: "{{ k8sio_path }}/{{ item }}"
+        update: no
+      with_items:
+        - kubernetes
+        - test-infra
+
+    - name: Symlink planter back to k8sio repo
+      file:
+        state: link
+        src: "{{ ansible_env.HOME }}/{{ k8sio_path }}/test-infra/planter"
+        dest: "{{ ansible_env.HOME }}/{{ k8sio_path }}/planter"
+
+    - name: Add 'docker' group
+      become: true
+      become_user: root
+      group:
+        name: docker
+        state: present
+
+    - name: Add ansible_user to 'docker' group
+      become: true
+      become_user: root
+      user:
+        name: "{{ ansible_user }}"
+        group: docker
+    - name: Start and enable Docker service
+      become: true
+      become_user: root
+      systemd:
+        name: docker.service
+        state: started
+        enabled: yes

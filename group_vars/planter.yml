@@ -1,0 +1,3 @@
+---
+go_path: src/go/
+k8sio_path: "{{ go_path }}/k8s.io/"
